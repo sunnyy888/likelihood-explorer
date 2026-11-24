@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Likelihood Explorer</title>
+<meta name="description" content="See maximum likelihood: a coin, a logistic regression surface with the optimizer's path, standard errors from curvature, and a conjoint logit you fit yourself.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;600;700&display=swap">
+<style>
+:root{
+  --bg:#fbfaf7; --panel:#fff; --ink:#1c1d21; --muted:#6a6d75; --line:#e6e3dc; --soft:#f3f1ec;
+  --a:#3b6fd8; --b:#d2453b; --c:#2a9563; --d:#c98a12; --shadow:0 1px 3px rgba(0,0,0,.05),0 6px 24px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#131418; --panel:#1b1d22; --ink:#ebecef; --muted:#9a9ea8; --line:#2c2f36; --soft:#202329; --shadow:0 6px 24px rgba(0,0,0,.35);
+}}
+:root[data-theme="dark"]{ --bg:#131418; --panel:#1b1d22; --ink:#ebecef; --muted:#9a9ea8; --line:#2c2f36; --soft:#202329; --shadow:0 6px 24px rgba(0,0,0,.35); }
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.65 "Source Serif 4",Georgia,serif}
+.col{max-width:720px;margin:0 auto;padding:0 18px}
+.wide{max-width:1040px;margin:0 auto;padding:0 18px}
+header{padding:48px 0 10px}
+.kicker{font:600 13px Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--a)}
+h1{font-size:42px;line-height:1.1;margin:10px 0}
+h2{font-size:27px;margin:48px 0 6px} h2 .n{color:var(--muted);font-weight:400;margin-right:8px}
+.dek{font-size:20px;color:var(--muted);margin:0}
+figure{margin:20px 0;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+figcaption,.ui{font:13px/1.5 Inter,sans-serif;color:var(--muted)}
+.ui{color:var(--ink)}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.ctl{flex:1;min-width:180px;font:600 12px Inter,sans-serif;color:var(--muted)}
+.ctl label{display:flex;justify-content:space-between;text-transform:uppercase;letter-spacing:.04em}
+.ctl output{color:var(--ink);text-transform:none}
+input[type=range]{width:100%;accent-color:var(--a)}
+button,select{font:600 13px Inter,sans-serif;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:7px 12px;cursor:pointer}
+button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.two{display:grid;grid-template-columns:1.2fr 1fr;gap:16px}
+.two > *{min-width:0}
+svg{width:100%;display:block} svg text{font:11px Inter,sans-serif;fill:var(--muted)}
+canvas{width:100%;display:block;border-radius:8px;cursor:crosshair;touch-action:none}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.stat{background:var(--soft);border-radius:10px;padding:9px 10px;font:12px Inter,sans-serif;color:var(--muted)}
+.stat b{display:block;font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}
+.math{font-style:italic;white-space:nowrap}
+.formula{font:13px/1.6 "SF Mono",Menlo,monospace;background:var(--soft);border-radius:8px;padding:10px 12px;overflow-x:auto;white-space:pre}
+table{border-collapse:collapse;width:100%;font:13px Inter,sans-serif;font-variant-numeric:tabular-nums}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+.callout{border-left:3px solid var(--a);background:var(--soft);padding:10px 14px;border-radius:0 10px 10px 0;margin:14px 0}
+.good{color:var(--c);font-weight:600} .bad{color:var(--b);font-weight:600}
+footer{color:var(--muted);font:13px/1.6 Inter,sans-serif;padding:40px 0 60px}
+@media (max-width:820px){ h1{font-size:32px} .two{grid-template-columns:1fr} .stats{grid-template-columns:1fr 1fr} body{font-size:16px} }
+</style>
+</head>
+<body>
+<header class="col">
+  <div class="kicker">How a logit gets fit</div>
+  <h1>Likelihood Explorer</h1>
+  <p class="dek">"Fit by maximum likelihood" sounds like magic. It's a search for the parameter values that make the data you actually saw as probable as possible, and the shape of the peak tells you how sure to be.</p>
+</header>
+
+<main>
+<section class="col">
+  <h2><span class="n">1</span>A coin</h2>
+  <p>You flip a coin <b id="cN">20</b> times and get <b id="cH">14</b> heads. For any guess <span class="math">p</span> of the heads probability, the chance of exactly this data is <span class="math">p<sup>h</sup>(1−p)<sup>n−h</sup></span>. Its logarithm, the <b>log-likelihood</b>, is easier to work with: <span class="math">ℓ(p) = h·ln p + (n−h)·ln(1−p)</span>. Drag <span class="math">p</span> and find the top.</p>
+</section>
+<section class="wide">
+  <figure>
+    <div class="row ui">
+      <div class="ctl"><label>Your guess p <output id="oP"></output></label><input type="range" id="p" min="0.01" max="0.99" step="0.005" value="0.4"></div>
+      <div class="ctl"><label>Flips n <output id="oN"></output></label><input type="range" id="n" min="5" max="500" step="5" value="20"></div>
+      <div class="ctl"><label>Heads h <output id="oH"></output></label><input type="range" id="h" min="0" max="20" step="1" value="14"></div>
+      <label class="ui"><input type="checkbox" id="quad" checked> quadratic at the peak</label>
+    </div>
+    <svg id="coin" viewBox="0 0 900 300" role="img" aria-label="Coin log-likelihood curve"></svg>
+    <div class="stats"><div class="stat"><b id="sLL">–</b>ℓ(your p)</div><div class="stat"><b id="sMLE">–</b>peak p̂ = h/n</div><div class="stat"><b id="sSE">–</b>SE from curvature</div></div>
+    <figcaption id="coinCap"></figcaption>
+  </figure>
+</section>
+<section class="col">
+  <p>The peak is always at <span class="math">p̂ = h/n</span>, the share of heads. More interesting is how <b>sharp</b> the peak is. Slide <i>n</i> up while keeping the same share of heads, and the curve narrows. The curvature at the top, <span class="math">ℓ''(p̂) = −n / (p̂(1−p̂))</span>, measures how fast the likelihood falls off, and <span class="math">SE = 1/√(−ℓ''(p̂)) = √(p̂(1−p̂)/n)</span>. That's the familiar standard error of a proportion, recovered from geometry.</p>
+
+  <h2><span class="n">2</span>Two coefficients: a surface</h2>
+  <p>A logistic regression has a log-likelihood too: <span class="math">ℓ(β₀, β₁) = Σ [yᵢ ln Pᵢ + (1−yᵢ) ln(1−Pᵢ)]</span> with <span class="math">Pᵢ = 1/(1+e<sup>−(β₀+β₁xᵢ)</sup>)</span>. Below, <span id="dataDesc">80 students' study hours (x) and whether they passed (y)</span>. With two coefficients the log-likelihood is a hill over the (β₀, β₁) plane. <b>Click anywhere on the map</b> to start the optimizer there, then step through.</p>
+</section>
+<section class="wide">
+  <figure>
+    <div class="row ui" style="margin-bottom:8px">
+      <select id="method" aria-label="Optimizer"><option value="newton">Newton–Raphson</option><option value="gd">Gradient ascent</option></select>
+      <div class="ctl" id="lrBox" hidden><label>Learning rate <output id="oLR"></output></label><input type="range" id="lr" min="-4" max="-1" step="0.05" value="-2.3"></div>
+      <select id="nLR" aria-label="Number of students"><option value="80">80 students</option><option value="200">200 students</option><option value="1000">1,000 students</option></select>
+      <button id="step" class="primary">Step ▶</button><button id="run">Run ▶▶</button><button id="reset">Reset</button><button id="newLR">🎲 New data</button>
+      <label class="ui"><input type="checkbox" id="ellipse" checked> 95% confidence ellipse</label>
+    </div>
+    <div class="two">
+      <div><canvas id="surf" width="620" height="460" aria-label="Log-likelihood contour map"></canvas>
+        <figcaption>Contours of ℓ(β₀, β₁); brighter = higher. White dots are the optimizer's steps; the star is the maximum.</figcaption></div>
+      <div>
+        <svg id="fitPlot" viewBox="0 0 420 260" role="img" aria-label="Data and the current fitted curve"></svg>
+        <div class="stats"><div class="stat"><b id="sIter">0</b>steps</div><div class="stat"><b id="sLL2">–</b>ℓ now</div><div class="stat"><b id="sGrad">–</b>|gradient|</div></div>
+        <div class="formula" id="iterLog" style="margin-top:10px;max-height:150px;overflow:auto"></div>
+      </div>
+    </div>
+  </figure>
+</section>
+<section class="col">
+  <p><b>Newton–Raphson</b> (what HW4 2B used) treats the hill as a bowl. It reads the slope (gradient <span class="math">g</span>) and the curvature (Hessian <span class="math">H</span>) where it stands and jumps to the top of that bowl: <span class="math">β ← β − H⁻¹g</span>. Near the peak the bowl is nearly exact, so it lands in about 5 steps. <b>Gradient ascent</b> only follows the slope. On this tilted, stretched hill (β₀ and β₁ trade off against each other) it zig-zags for hundreds of steps, and too large a learning rate makes it overshoot and diverge.</p>
+
+  <h2><span class="n">3</span>Curvature → standard errors</h2>
+  <p>At the peak, the Hessian holds the curvature in every direction. Flip its sign and invert it, and you get the <b>covariance matrix</b> of the estimates. The square roots of its diagonal are the standard errors, and the off-diagonal says how the two estimates move together. The 95% ellipse on the map is where ℓ has dropped by 3.0 from the peak (half the 95% χ² value with 2 degrees of freedom).</p>
+</section>
+<section class="wide">
+  <figure>
+    <div class="two">
+      <div><table id="seTable"></table><div class="formula" id="hessBox" style="margin-top:10px"></div></div>
+      <div><p class="ui" style="margin-top:0">Does the curvature tell the truth? Pretend the fitted model is reality, simulate 200 new datasets from it, refit each one, and compare the spread of estimates with the SEs from curvature.</p>
+        <button id="simBtn" class="primary">Simulate 200 datasets</button>
+        <table id="simTable" style="margin-top:10px"></table>
+        <figcaption>The orange dots appear on the contour map: they should fill the 95% ellipse with about 5% outside.</figcaption></div>
+    </div>
+    <div class="callout" style="margin-top:12px"><b>The fine print:</b> curvature-based SEs are a <i>large-sample</i> approximation. With 80 students the refits typically spread about 20% wider than the curvature says, and roughly 1 in 10 lands outside the 95% ellipse. With 200 the gap is about 5%, and with 1,000 it all but vanishes. HW4 2B had 1,500 screens, comfortably in the large-sample zone.</div>
+    <div>
+    </div>
+  </figure>
+</section>
+<section class="col">
+  <h2><span class="n">4</span>Fit it yourself: the fare-bundle conjoint</h2>
+  <p>HW4 2B fit a logit to 1,500 choice screens (each: two fare bundles plus "Not now") with four coefficients. Try to find them by hand: move the sliders to make the log-likelihood as high as you can. Then let Newton–Raphson do it.</p>
+</section>
+<section class="wide">
+  <figure>
+    <div class="row ui" style="margin-bottom:8px">
+      <span id="cjSource">Using a synthetic conjoint with the HW4 structure (250 travelers × 6 screens).</span>
+      <label><button onclick="document.getElementById('cjFile').click()">Load my HW4 conjoint CSV</button><input type="file" id="cjFile" accept=".csv,text/csv" hidden></label>
+    </div>
+    <div class="two">
+      <div>
+        <div class="ctl"><label>bundle (constant) <output id="o0"></output></label><input type="range" id="b0" min="0" max="8" step="0.01" value="2"></div>
+        <div class="ctl"><label>bag <output id="o1"></output></label><input type="range" id="b1" min="-1" max="3" step="0.01" value="0"></div>
+        <div class="ctl"><label>flex <output id="o2"></output></label><input type="range" id="b2" min="-1" max="3" step="0.01" value="0"></div>
+        <div class="ctl"><label>price (per $) <output id="o3"></output></label><input type="range" id="b3" min="-0.08" max="0.01" step="0.0005" value="-0.01"></div>
+        <div class="row" style="margin-top:8px"><button id="cjNewton" class="primary">Let Newton–Raphson finish</button><button id="cjReset">Reset sliders</button></div>
+      </div>
+      <div>
+        <div class="stats"><div class="stat"><b id="cjLL">–</b>your ℓ</div><div class="stat"><b id="cjBest">–</b>your best</div><div class="stat"><b id="cjMax">–</b>the maximum</div></div>
+        <svg id="cjBar" viewBox="0 0 420 60" role="img" aria-label="How close you are" style="margin-top:8px"></svg>
+        <table id="cjTable" style="margin-top:8px"></table>
+      </div>
+    </div>
+    <figcaption id="cjCap"></figcaption>
+  </figure>
+  <div class="col"><div class="callout" id="cjNote">Tip: start with price (it has the biggest effect per unit), then the constant, then bag and flex. When every slider is at its best given the others, you're at the peak, and the SEs come from how sharply ℓ falls if you nudge any of them.</div></div>
+</section>
+</main>
+<footer class="col">Everything is computed in your browser: exact log-likelihoods, analytic gradients and Hessians, Newton–Raphson with step-halving. Your conjoint CSV never leaves your device. A companion to DSO 429 HW4 Part 2.</footer>
+
+<script id="core">
+/* ---------- core (tested by test.mjs) ---------- */
+const LX = (() => {
+  function mulberry32(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function normal(rng) { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }
+  // ---- coin ----
+  const coinLL = (p, h, n) => h * Math.log(p) + (n - h) * Math.log(1 - p);
+  const coinSE = (h, n) => { const p = h / n; return Math.sqrt(p * (1 - p) / n); };
+  // ---- logistic regression with intercept + one slope ----
+  const sig = z => 1 / (1 + Math.exp(-z));
+  function logitData(rng, n = 80, b0 = -4, b1 = 0.8) { const x = [], y = []; for (let i = 0; i < n; i++) { const xi = 10 * rng(); x.push(xi); y.push(rng() < sig(b0 + b1 * xi) ? 1 : 0); } return { x, y }; }
+  function logitLL(d, b) {
+    let ll = 0, g0 = 0, g1 = 0, h00 = 0, h01 = 0, h11 = 0;
+    for (let i = 0; i < d.x.length; i++) {
+      const z = b[0] + b[1] * d.x[i], p = sig(z), w = p * (1 - p);
+      ll += d.y[i] ? -Math.log1p(Math.exp(-z)) : -Math.log1p(Math.exp(z));
+      g0 += d.y[i] - p; g1 += (d.y[i] - p) * d.x[i];
+      h00 -= w; h01 -= w * d.x[i]; h11 -= w * d.x[i] * d.x[i];
+    }
+    return { ll, g: [g0, g1], H: [[h00, h01], [h01, h11]] };
+  }
+  const inv2 = H => { const det = H[0][0] * H[1][1] - H[0][1] * H[1][0]; return [[H[1][1] / det, -H[0][1] / det], [-H[1][0] / det, H[0][0] / det]]; };
+  function newtonStep(d, b) {
+    const { ll, g, H } = logitLL(d, b), Hi = inv2(H), step = [Hi[0][0] * g[0] + Hi[0][1] * g[1], Hi[1][0] * g[0] + Hi[1][1] * g[1]];
+    let t = 1, nb; for (;;) { nb = [b[0] - t * step[0], b[1] - t * step[1]]; if (logitLL(d, nb).ll >= ll - 1e-12 || t < 1e-6) break; t /= 2; }
+    return nb;
+  }
+  const gdStep = (d, b, lr) => { const { g } = logitLL(d, b); return [b[0] + lr * g[0], b[1] + lr * g[1]]; };
+  function fitLogit(d, start = [0, 0]) { let b = start; for (let i = 0; i < 100; i++) { const nb = newtonStep(d, b); const done = Math.abs(nb[0] - b[0]) + Math.abs(nb[1] - b[1]) < 1e-12; b = nb; if (done) break; } const r = logitLL(d, b), cov = inv2(r.H).map(row => row.map(v => -v)); return { b, ll: r.ll, cov, se: [Math.sqrt(cov[0][0]), Math.sqrt(cov[1][1])] }; }
+  // ---- marching squares: segments of the level set {f = level} on a grid z[j][i] (rows j, cols i) ----
+  function contour(z, level) {
+    const segs = [], ny = z.length, nx = z[0].length;
+    const lerp = (a, b) => (level - a) / (b - a);
+    for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+      const a = z[j][i], b = z[j][i + 1], c = z[j + 1][i + 1], d = z[j + 1][i];
+      const pts = [];
+      if ((a >= level) !== (b >= level)) pts.push([i + lerp(a, b), j]);
+      if ((b >= level) !== (c >= level)) pts.push([i + 1, j + lerp(b, c)]);
+      if ((d >= level) !== (c >= level)) pts.push([i + lerp(d, c), j + 1]);
+      if ((a >= level) !== (d >= level)) pts.push([i, j + lerp(a, d)]);
+      if (pts.length === 2) segs.push(pts); else if (pts.length === 4) { segs.push([pts[0], pts[1]]); segs.push([pts[2], pts[3]]); }
+    }
+    return segs;
+  }
+  // ---- conditional logit (HW4 2B structure): screens of 3 options, 4 attributes ----
+  function cjFromRows(rows) {
+    const g = new Map();
+    for (const r of rows) { const k = r.resp_id + "|" + r.task; if (!g.has(k)) g.set(k, []); g.get(k).push(r); }
+    const X = [], Y = [];
+    for (const s of g.values()) { s.sort((a, b) => a.alt - b.alt); X.push(s.map(r => [r.bundle, r.bag, r.flex, r.price])); Y.push(s.findIndex(r => r.chosen === 1)); }
+    return { X, Y };
+  }
+  function cjSynthetic(seed = 2026, beta = [4.4, 0.8, 0.47, -0.0285]) {
+    const rng = mulberry32(seed), X = [], Y = [], prices = [129, 139, 149, 159, 169, 179, 189, 199];
+    for (let s = 0; s < 1500; s++) {
+      const opts = [0, 1].map(() => [1, rng() < 0.5 ? 1 : 0, rng() < 0.5 ? 1 : 0, prices[Math.floor(rng() * prices.length)]]).concat([[0, 0, 0, 0]]);
+      const u = opts.map(x => x.reduce((t, v, k) => t + v * beta[k], 0) - Math.log(-Math.log(rng() || 1e-12)));
+      X.push(opts); Y.push(u.indexOf(Math.max(...u)));
+    }
+    return { X, Y };
+  }
+  function cjLL(d, b, wantHess) {
+    const K = 4; let ll = 0; const g = [0, 0, 0, 0], H = [0, 1, 2, 3].map(() => [0, 0, 0, 0]);
+    for (let s = 0; s < d.X.length; s++) {
+      const x = d.X[s], u = x.map(r => r[0] * b[0] + r[1] * b[1] + r[2] * b[2] + r[3] * b[3]), m = Math.max(...u), e = u.map(v => Math.exp(v - m)), t = e[0] + e[1] + e[2];
+      const P = e.map(v => v / t); ll += Math.log(P[d.Y[s]]);
+      if (!wantHess) continue;
+      const xb = [0, 1, 2, 3].map(k => P[0] * x[0][k] + P[1] * x[1][k] + P[2] * x[2][k]);
+      for (let k = 0; k < K; k++) g[k] += x[d.Y[s]][k] - xb[k];
+      for (let j = 0; j < 3; j++) { const dv = [0, 1, 2, 3].map(k => x[j][k] - xb[k]); for (let a = 0; a < K; a++) for (let c = 0; c < K; c++) H[a][c] -= P[j] * dv[a] * dv[c]; }
+    }
+    return { ll, g, H };
+  }
+  function invert(M) { const n = M.length, A = M.map((r, i) => r.concat(Array.from({ length: n }, (_, j) => (i === j ? 1 : 0)))); for (let c = 0; c < n; c++) { let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r; [A[c], A[p]] = [A[p], A[c]]; const dv = A[c][c]; for (let j = 0; j < 2 * n; j++) A[c][j] /= dv; for (let r = 0; r < n; r++) if (r !== c) { const f = A[r][c]; for (let j = 0; j < 2 * n; j++) A[r][j] -= f * A[c][j]; } } return A.map(r => r.slice(n)); }
+  function cjFit(d, start = [0, 0, 0, 0]) {
+    let b = start.slice(); const path = [b.slice()];
+    for (let it = 0; it < 60; it++) {
+      const { ll, g, H } = cjLL(d, b, true), Hi = invert(H), step = Hi.map(r => r.reduce((s, v, k) => s + v * g[k], 0));
+      let t = 1, nb; for (;;) { nb = b.map((v, k) => v - t * step[k]); if (cjLL(d, nb).ll >= ll - 1e-10 || t < 1e-8) break; t /= 2; }
+      b = nb; path.push(b.slice());
+      if (Math.max(...step.map(Math.abs)) * t < 1e-11) break;
+    }
+    const r = cjLL(d, b, true), cov = invert(r.H.map(row => row.map(v => -v)));
+    return { b, ll: r.ll, se: cov.map((row, i) => Math.sqrt(row[i])), path, maxGrad: Math.max(...r.g.map(Math.abs)) };
+  }
+  return { mulberry32, normal, coinLL, coinSE, sig, logitData, logitLL, newtonStep, gdStep, fitLogit, inv2, contour, cjFromRows, cjSynthetic, cjLL, cjFit, invert };
+})();
+if (typeof module !== "undefined") module.exports = LX;
+</script>
+
+<script>
+const $ = id => document.getElementById(id), css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+/* ---------- 1. coin ---------- */
+function coin() {
+  const n = +$("n").value; $("h").max = n; if (+$("h").value > n) $("h").value = Math.round(0.7 * n);
+  const h = +$("h").value, p = +$("p").value, ph = Math.min(0.995, Math.max(0.005, h / n));
+  $("oP").textContent = p.toFixed(3); $("oN").textContent = n; $("oH").textContent = h; $("cN").textContent = n; $("cH").textContent = h;
+  const W = 900, H = 300, L = 56, R = 14, T = 12, B = 34, xs = [], N = 400;
+  for (let i = 1; i < N; i++) xs.push(i / N);
+  const top = h > 0 && h < n ? LX.coinLL(ph, h, n) : 0, lo = top - Math.max(8, 0.25 * n);
+  const X = v => L + v * (W - L - R), Y = v => T + (top + 1 - Math.max(lo, v)) / (top + 1 - lo) * (H - T - B);
+  let s = "";
+  for (let k = 0; k <= 4; k++) { const v = lo + (top + 1 - lo) * k / 4; s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end">${v.toFixed(0)}</text>`; }
+  for (let v = 0; v <= 1.0001; v += 0.1) s += `<text x="${X(v)}" y="${H - 12}" text-anchor="middle">${v.toFixed(1)}</text>`;
+  s += `<text x="${(L + W - R) / 2}" y="${H - 0}" text-anchor="middle">p</text><text x="14" y="${(T + H - B) / 2}" text-anchor="middle" transform="rotate(-90 14 ${(T + H - B) / 2})">log-likelihood ℓ(p)</text>`;
+  s += `<path d="${xs.map((v, i) => (i ? "L" : "M") + X(v).toFixed(1) + " " + Y(LX.coinLL(v, h, n)).toFixed(1)).join(" ")}" fill="none" stroke="var(--a)" stroke-width="2.6"/>`;
+  if ($("quad").checked && h > 0 && h < n) { const curv = -n / (ph * (1 - ph)); s += `<path d="${xs.filter(v => Math.abs(v - ph) < 0.5).map((v, i) => (i ? "L" : "M") + X(v).toFixed(1) + " " + Y(top + 0.5 * curv * (v - ph) ** 2).toFixed(1)).join(" ")}" fill="none" stroke="var(--d)" stroke-width="1.6" stroke-dasharray="5 4"/>`; }
+  const se = LX.coinSE(h, n);
+  if (h > 0 && h < n) { s += `<rect x="${X(Math.max(0, ph - 1.96 * se))}" y="${T}" width="${X(Math.min(1, ph + 1.96 * se)) - X(Math.max(0, ph - 1.96 * se))}" height="${H - T - B}" fill="var(--c)" opacity=".08"/>`; s += `<circle cx="${X(ph)}" cy="${Y(top)}" r="6" fill="var(--c)"/><text x="${X(ph)}" y="${Y(top) - 10}" text-anchor="middle" style="fill:var(--c);font-weight:700">peak p̂ = ${ph.toFixed(3)}</text>`; }
+  const llp = LX.coinLL(p, h, n);
+  s += `<line x1="${X(p)}" x2="${X(p)}" y1="${T}" y2="${H - B}" stroke="var(--b)" stroke-dasharray="3 3"/><circle cx="${X(p)}" cy="${Y(llp)}" r="7" fill="var(--b)" stroke="var(--panel)" stroke-width="2"/>`;
+  $("coin").innerHTML = s;
+  $("sLL").textContent = llp.toFixed(2); $("sMLE").textContent = (h / n).toFixed(3); $("sSE").textContent = h > 0 && h < n ? se.toFixed(4) : "–";
+  $("coinCap").textContent = `Red: your guess. Green: the maximum, with its 95% interval p̂ ± 1.96 SE = [${Math.max(0, h / n - 1.96 * se).toFixed(3)}, ${Math.min(1, h / n + 1.96 * se).toFixed(3)}] shaded. Dashed orange: the quadratic with the same curvature at the peak, ℓ(p̂) − ½·n/(p̂(1−p̂))·(p − p̂)². You are ${(top - llp).toFixed(2)} below the top${top - llp < 0.02 ? ", basically there!" : "."}`;
+}
+["p", "n", "h", "quad"].forEach(id => $(id).addEventListener("input", coin));
+
+/* ---------- 2/3. logistic surface ---------- */
+let D, fit, path = [], box, grid, gridMax, sims = [], seedLR = 3;
+const GX = 140, GY = 104;
+function newLR(seed) {
+  D = LX.logitData(LX.mulberry32(seed), +$("nLR").value); fit = LX.fitLogit(D);
+  const [b0, b1] = fit.b, [s0, s1] = fit.se;
+  box = { x0: b0 - 6 * s0, x1: b0 + 6 * s0, y0: b1 - 6 * s1, y1: b1 + 6 * s1 };
+  grid = []; gridMax = -Infinity;
+  for (let j = 0; j < GY; j++) { const row = []; for (let i = 0; i < GX; i++) { const v = LX.logitLL(D, [box.x0 + (box.x1 - box.x0) * i / (GX - 1), box.y1 - (box.y1 - box.y0) * j / (GY - 1)]).ll; row.push(v); gridMax = Math.max(gridMax, v); } grid.push(row); }
+  sims = []; $("simTable").innerHTML = "";
+  path = [[box.x0 + 0.15 * (box.x1 - box.x0), box.y0 + 0.85 * (box.y1 - box.y0)]];
+  const n = D.y.reduce((a, b) => a + b, 0); $("dataDesc").textContent = `${D.x.length.toLocaleString()} students' study hours (x, 0–10) and whether they passed (y = 1 for ${n} of them)`;
+  drawSurf(); seTable();
+}
+function toPx(b, W, H) { return [(b[0] - box.x0) / (box.x1 - box.x0) * W, (box.y1 - b[1]) / (box.y1 - box.y0) * H]; }
+function drawSurf() {
+  const cv = $("surf"), ctx = cv.getContext("2d"), W = cv.width, H = cv.height, img = ctx.createImageData(GX, GY);
+  for (let j = 0; j < GY; j++) for (let i = 0; i < GX; i++) {
+    const drop = gridMax - grid[j][i], t = Math.max(0, 1 - Math.log1p(drop) / Math.log1p(80)), o = 4 * (j * GX + i);
+    img.data[o] = 20 + 60 * t + 150 * t * t; img.data[o + 1] = 30 + 120 * t + 60 * t * t; img.data[o + 2] = 70 + 120 * t - 40 * t * t; img.data[o + 3] = 255;
+  }
+  const off = document.createElement("canvas"); off.width = GX; off.height = GY; off.getContext("2d").putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = true; ctx.drawImage(off, 0, 0, W, H);
+  ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 1;
+  [0.5, 2, 5, 10, 20, 40, 80].forEach(dl => { for (const [a, b] of LX.contour(grid, gridMax - dl)) { ctx.beginPath(); ctx.moveTo(a[0] / (GX - 1) * W, a[1] / (GY - 1) * H); ctx.lineTo(b[0] / (GX - 1) * W, b[1] / (GY - 1) * H); ctx.stroke(); } });
+  if ($("ellipse").checked) { ctx.strokeStyle = "#ffd166"; ctx.lineWidth = 2.2; for (const [a, b] of LX.contour(grid, fit.ll - 2.996)) { ctx.beginPath(); ctx.moveTo(a[0] / (GX - 1) * W, a[1] / (GY - 1) * H); ctx.lineTo(b[0] / (GX - 1) * W, b[1] / (GY - 1) * H); ctx.stroke(); } }
+  ctx.fillStyle = "#ff9f43"; sims.forEach(b => { const [x, y] = toPx(b, W, H); ctx.beginPath(); ctx.arc(x, y, 2.6, 0, 7); ctx.fill(); });
+  // axes labels
+  ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.font = "12px Inter, sans-serif";
+  ctx.fillText(`β₀ (intercept) →   ${box.x0.toFixed(1)} … ${box.x1.toFixed(1)}`, 10, H - 10);
+  ctx.save(); ctx.translate(16, H - 40); ctx.rotate(-Math.PI / 2); ctx.fillText(`β₁ (slope) →   ${box.y0.toFixed(2)} … ${box.y1.toFixed(2)}`, 0, 0); ctx.restore();
+  // path
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); path.forEach((b, k) => { const [x, y] = toPx(b, W, H); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
+  path.forEach((b, k) => { const [x, y] = toPx(b, W, H); ctx.fillStyle = k === path.length - 1 ? "#ff5d73" : "#fff"; ctx.beginPath(); ctx.arc(x, y, k === path.length - 1 ? 6 : 3.5, 0, 7); ctx.fill(); });
+  const [sx, sy] = toPx(fit.b, W, H); ctx.fillStyle = "#ffd166"; ctx.font = "20px sans-serif"; ctx.fillText("★", sx - 7, sy + 7);
+  const cur = path[path.length - 1], r = LX.logitLL(D, cur);
+  $("sIter").textContent = path.length - 1; $("sLL2").textContent = isFinite(r.ll) ? r.ll.toFixed(3) : "−∞"; $("sGrad").textContent = Math.hypot(...r.g).toExponential(1);
+  $("iterLog").textContent = path.slice(-12).map((b, k) => `step ${path.length - Math.min(12, path.length) + k}: β₀ = ${b[0].toFixed(4)}, β₁ = ${b[1].toFixed(4)}, ℓ = ${LX.logitLL(D, b).ll.toFixed(4)}`).join("\n");
+  drawFit(cur);
+}
+function drawFit(b) {
+  const W = 420, H = 260, L = 34, R = 10, T = 10, B = 28, X = x => L + x / 10 * (W - L - R), Y = y => T + (1 - y) * (H - T - B); let s = "";
+  [0, 0.5, 1].forEach(v => (s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${L - 5}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`));
+  for (let x = 0; x <= 10; x += 2) s += `<text x="${X(x)}" y="${H - 10}" text-anchor="middle">${x}</text>`;
+  s += `<text x="${(L + W - R) / 2}" y="${H}" text-anchor="middle">hours studied</text>`;
+  D.x.forEach((x, i) => (s += `<circle cx="${X(x)}" cy="${Y(D.y[i]) + (D.y[i] ? 6 : -6) * ((i % 5) / 5)}" r="3" fill="var(--a)" opacity=".55"/>`));
+  const curve = (bb, c, w, dash) => `<path d="${Array.from({ length: 101 }, (_, k) => (k ? "L" : "M") + X(k / 10).toFixed(1) + " " + Y(LX.sig(bb[0] + bb[1] * k / 10)).toFixed(1)).join(" ")}" fill="none" stroke="${c}" stroke-width="${w}" ${dash ? 'stroke-dasharray="5 4"' : ""}/>`;
+  s += curve(fit.b, "var(--muted)", 1.4, true) + curve(b, "var(--b)", 2.6);
+  $("fitPlot").innerHTML = s + `<text x="${W - R}" y="${T + 12}" text-anchor="end" style="fill:var(--b)">current step</text><text x="${W - R}" y="${T + 26}" text-anchor="end">dashed = maximum likelihood</text>`;
+}
+function seTable() {
+  const c = fit.cov, r = c[0][1] / Math.sqrt(c[0][0] * c[1][1]), H = LX.logitLL(D, fit.b).H;
+  $("seTable").innerHTML = `<tr><th>Coefficient</th><th>Estimate</th><th>SE = √(−H⁻¹)ᵢᵢ</th><th>95% CI</th></tr>` +
+    ["β₀ (intercept)", "β₁ (slope per hour)"].map((nm, k) => `<tr><td>${nm}</td><td>${fit.b[k].toFixed(4)}</td><td>${fit.se[k].toFixed(4)}</td><td>[${(fit.b[k] - 1.96 * fit.se[k]).toFixed(3)}, ${(fit.b[k] + 1.96 * fit.se[k]).toFixed(3)}]</td></tr>`).join("");
+  $("hessBox").textContent = `Hessian at the peak     H = [${H[0][0].toFixed(2)}  ${H[0][1].toFixed(2)}; ${H[1][0].toFixed(2)}  ${H[1][1].toFixed(2)}]\nCovariance = (−H)⁻¹      = [${c[0][0].toFixed(4)}  ${c[0][1].toFixed(4)}; ${c[1][0].toFixed(4)}  ${c[1][1].toFixed(4)}]\nCorrelation of β₀ and β₁ = ${r.toFixed(3)}  (why the hill is tilted)`;
+}
+function stepOnce() {
+  const cur = path[path.length - 1], nb = $("method").value === "newton" ? LX.newtonStep(D, cur) : LX.gdStep(D, cur, 10 ** +$("lr").value);
+  if (!nb.every(isFinite) || Math.abs(nb[0]) > 1e3) { $("iterLog").textContent += "\n⚠ diverged: the learning rate is too big for this curvature."; return false; }
+  path.push(nb); drawSurf(); return true;
+}
+let running = null;
+$("step").addEventListener("click", stepOnce);
+$("run").addEventListener("click", () => { clearInterval(running); let k = 0; const n = $("method").value === "newton" ? 8 : 400; running = setInterval(() => { if (!stepOnce() || ++k >= n || Math.hypot(...LX.logitLL(D, path[path.length - 1]).g) < 1e-8) clearInterval(running); }, $("method").value === "newton" ? 450 : 15); });
+$("reset").addEventListener("click", () => { clearInterval(running); path = [path[0]]; drawSurf(); });
+$("nLR").addEventListener("change", () => { clearInterval(running); newLR(seedLR); });
+$("newLR").addEventListener("click", () => { clearInterval(running); seedLR = (Math.random() * 2 ** 31) | 0; newLR(seedLR); });
+$("method").addEventListener("change", () => { $("lrBox").hidden = $("method").value !== "gd"; clearInterval(running); path = [path[0]]; drawSurf(); });
+$("lr").addEventListener("input", () => ($("oLR").textContent = (10 ** +$("lr").value).toExponential(1)));
+$("ellipse").addEventListener("change", drawSurf);
+$("surf").addEventListener("pointerdown", e => {
+  const r = e.target.getBoundingClientRect(), fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+  clearInterval(running); path = [[box.x0 + fx * (box.x1 - box.x0), box.y1 - fy * (box.y1 - box.y0)]]; drawSurf();
+});
+$("simBtn").addEventListener("click", () => {
+  const rng = LX.mulberry32(77), est = [];
+  for (let s = 0; s < 200; s++) { const y = D.x.map(x => (rng() < LX.sig(fit.b[0] + fit.b[1] * x) ? 1 : 0)); est.push(LX.fitLogit({ x: D.x, y }, fit.b).b); }
+  sims = est;
+  const sd = k => { const m = est.reduce((a, e) => a + e[k], 0) / est.length; return Math.sqrt(est.reduce((a, e) => a + (e[k] - m) ** 2, 0) / (est.length - 1)); };
+  const Ci = LX.inv2(fit.cov); let outside = 0;
+  est.forEach(e => { const d0 = e[0] - fit.b[0], d1 = e[1] - fit.b[1]; if (d0 * (Ci[0][0] * d0 + Ci[0][1] * d1) + d1 * (Ci[1][0] * d0 + Ci[1][1] * d1) > 5.991) outside++; });
+  $("simTable").innerHTML = `<tr><th></th><th>SE from curvature</th><th>SD of 200 refits</th></tr>` + ["β₀", "β₁"].map((nm, k) => `<tr><td>${nm}</td><td>${fit.se[k].toFixed(4)}</td><td>${sd(k).toFixed(4)}</td></tr>`).join("") +
+    `<tr><td colspan="3">${outside} of 200 estimates (${(outside / 2).toFixed(1)}%) fall outside the 95% ellipse; expect about 5%.${D.x.length < 150 ? " With only " + D.x.length + " students the refits spread wider than the curvature says. Try 1,000 students." : ""}</td></tr>`;
+  drawSurf();
+});
+
+/* ---------- 4. conjoint ---------- */
+let CJ = LX.cjSynthetic(), cjFitRes = LX.cjFit(CJ), cjBest = -Infinity, cjIsHW = false, cjRevealed = false;
+const NAMES = ["bundle (constant)", "bag", "flex", "price"];
+function cjSliders() { return [0, 1, 2, 3].map(k => +$("b" + k).value); }
+function cjRender(path) {
+  const b = cjSliders(), ll = LX.cjLL(CJ, b).ll, top = cjFitRes.ll, ll0 = CJ.X.length * Math.log(1 / 3);
+  [0, 1, 2, 3].forEach(k => ($("o" + k).textContent = (+$("b" + k).value).toFixed(k === 3 ? 4 : 2)));
+  cjBest = Math.max(cjBest, ll);
+  $("cjLL").textContent = ll.toFixed(2); $("cjBest").textContent = cjBest.toFixed(2); $("cjMax").textContent = top.toFixed(2);
+  const frac = Math.max(0, Math.min(1, (ll - ll0) / (top - ll0)));
+  $("cjBar").innerHTML = `<rect x="0" y="16" width="420" height="16" rx="8" fill="var(--soft)"/><rect x="0" y="16" width="${420 * Math.max(0, (cjBest - ll0) / (top - ll0))}" height="16" rx="8" fill="var(--d)" opacity=".35"/><rect x="0" y="16" width="${420 * frac}" height="16" rx="8" fill="var(--c)"/>
+    <text x="0" y="50">ℓ(0) = ${ll0.toFixed(0)} (everyone picks at random)</text><text x="420" y="50" text-anchor="end">maximum ${top.toFixed(1)}</text><text x="0" y="11">You're ${(100 * frac).toFixed(1)}% of the way from a random guess to the peak (${(top - ll).toFixed(2)} below it)</text>`;
+  $("cjTable").innerHTML = `<tr><th>Coefficient</th><th>Yours</th><th>MLE</th><th>SE</th></tr>` + NAMES.map((n, k) => `<tr><td>${n}</td><td>${b[k].toFixed(k === 3 ? 4 : 3)}</td><td>${cjRevealed ? cjFitRes.b[k].toFixed(k === 3 ? 6 : 4) : "?"}</td><td>${cjRevealed ? cjFitRes.se[k].toFixed(k === 3 ? 6 : 4) : "?"}</td></tr>`).join("");
+  $("cjCap").textContent = path ? `Newton–Raphson from your sliders: ${path.map(p => LX.cjLL(CJ, p).ll.toFixed(2)).join(" → ")}. Converged in ${path.length - 1} steps; ρ² = 1 − ℓ/ℓ(0) = ${(1 - top / ll0).toFixed(3)}.` : `ρ² at the maximum would be ${(1 - top / ll0).toFixed(3)}.${cjIsHW ? " With your HW4 data the MLE should match 2B: 4.3804, 0.8019, 0.4738, −0.028514." : ""}`;
+}
+[0, 1, 2, 3].forEach(k => $("b" + k).addEventListener("input", () => cjRender()));
+$("cjReset").addEventListener("click", () => { [2, 0, 0, -0.01].forEach((v, k) => ($("b" + k).value = v)); cjBest = -Infinity; cjRender(); });
+$("cjNewton").addEventListener("click", () => {
+  const f = LX.cjFit(CJ, cjSliders()); let k = 0; cjRevealed = true;
+  const tick = () => { const b = f.path[Math.min(k, f.path.length - 1)]; b.forEach((v, j) => ($("b" + j).value = v)); cjRender(f.path.slice(0, k + 1)); if (++k < f.path.length) setTimeout(tick, 500); };
+  tick();
+});
+$("cjFile").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const lines = (await f.text()).trim().split(/\r?\n/), head = lines.shift().split(",").map(s => s.trim());
+  const need = ["resp_id", "task", "alt", "bundle", "bag", "flex", "price", "chosen"];
+  if (!need.every(c => head.includes(c))) { $("cjSource").textContent = "That CSV needs columns: " + need.join(", "); return; }
+  const rows = lines.map(l => { const c = l.split(","), o = {}; head.forEach((h, i) => (o[h] = h === "resp_id" ? c[i] : +c[i])); return o; });
+  CJ = LX.cjFromRows(rows); cjFitRes = LX.cjFit(CJ); cjBest = -Infinity; cjIsHW = true; cjRevealed = false;
+  $("cjSource").textContent = `Using your file ${f.name}: ${CJ.X.length.toLocaleString()} choice screens.`; cjRender();
+});
+
+coin(); newLR(seedLR); cjRender();
+const qs = new URLSearchParams(location.search);
+if (qs.has("steps")) { $("method").value = qs.get("method") || "newton"; $("lrBox").hidden = $("method").value !== "gd"; for (let i = 0; i < +qs.get("steps"); i++) stepOnce(); }
+if (qs.has("sim")) $("simBtn").click();
+</script>
+</body>
+</html>
